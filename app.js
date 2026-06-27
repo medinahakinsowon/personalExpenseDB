@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import morgan from "morgan"
 import helmet from "helmet";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
@@ -15,21 +16,48 @@ await connectDB();
 
 const app = express();
 
-// Security headers
-app.use(helmet());
 
-// CORS: only allow the configured frontend origin(s) to call this API
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
-  .split(",")
-  .map((o) => o.trim());
+
+
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: [
+      process.env.CLIENT_URL || "http://localhost:3000",
+      "http://localhost:4000",
+      "http://localhost:5173",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:5173",
+    ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+app.options("/{*path}", cors());
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+
+
+// CORS: only allow the configured frontend origin(s) to call this API
+// const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+//   .split(",")
+//   .map((o) => o.trim());
+// app.use(
+//   cors({
+//     origin: allowedOrigins,
+//     credentials: true,
+//   }),
+// );
+
+
 
 app.use(express.json({ limit: "100kb" }));
+
+// Security headers
+// app.use(helmet());
 
 // Throttle auth endpoints to slow down credential-stuffing / brute force attempts
 const authLimiter = rateLimit({
