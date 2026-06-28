@@ -26,8 +26,18 @@ const userSchema = new mongoose.Schema(
     },
     currency: {
       type: String,
-      default: "USD",
+      default: "NGN",
     },
+    
+    resetPasswordToken:{
+       type: String,
+       select: false
+    },
+    resetPasswordExpires:{
+      type: Date,
+      select: false
+    }
+    
   },
 
   { timestamp: true },
@@ -51,6 +61,8 @@ userSchema.set("toJSON", {
   transform: (_doc, ret) => {
     delete ret._id;
     delete ret.password;
+    delete ret.resetPasswordToken;
+    delete ret.resetPasswordExpires;
     delete ret.__v;
     return ret;
   },

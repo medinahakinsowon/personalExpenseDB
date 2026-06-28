@@ -79,3 +79,84 @@ export const getMe = asyncHandler(async (req, res) => {
     },
   });
 });
+
+// @route  POST /api/auth/forgot-password
+// @access Public
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+  // Always return the same response whether or not the email exists,
+  // so we don't leak which emails are registered.
+  if (!user) {
+    return res.json({
+      message: "If that email is registered, a reset link has been generated.",
+    });
+  }
+
+  // Generate a secure random token
+  const crypto = await import("crypto");
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(rawToken)
+    .digest("hex");
+
+  user.resetPasswordToken = hashedToken;
+  user.resetPasswordExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+  await user.save();
+
+  // In dev mode we return the link directly instead of emailing it.
+  // In production, swap this out for a real email send.
+  const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+  const resetUrl = `${clientUrl}/reset-password/${rawToken}`;
+
+  res.json({
+    message: "If that email is registered, a reset link has been generated.",
+    // DEV ONLY — remove this field before going to production
+    devResetUrl: resetUrl,
+  });
+});
+
+// @route  POST /api/auth/reset-password/:token
+// @access Public
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  if (!password || password.length < 8) {
+    return res
+      .status(400)
+      .json({ message: "Password must be at least 8 characters" });
+  }
+
+  // Hash the incoming raw token to compare against the stored hash
+  const crypto = await import("crypto");
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    resetPasswordToken: hashedToken,
+    resetPasswordExpires: { $gt: new Date() }, // not expired
+  }).select("+resetPasswordToken +resetPasswordExpires");
+
+  if (!user) {
+    return res
+      .status(400)
+      .json({ message: "Reset link is invalid or has expired." });
+  }
+
+  // Set new password and clear the reset token
+  user.password = password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpires = undefined;
+  await user.save();
+
+  res.json({
+    message:
+      "Password reset successful. You can now sign in with your new password.",
+  });
+});

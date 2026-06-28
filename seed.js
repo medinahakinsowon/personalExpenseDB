@@ -11,7 +11,7 @@ const TEST_USER = {
   name: "Ada Lovelace",
   email: "ada@example.com",
   password: "SuperSecret123",
-  currency: "USD",
+  currency: "NGN",
 };
 
 // --- Sample expenses ---------------------------------------------------------
